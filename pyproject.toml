@@ -1,0 +1,67 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "superbryn"
+version = "0.1.0"
+description = "SuperBryn SDK — sync your voice-agent configuration to SuperBryn for review, versioning, and monitoring"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [
+    {name = "superbryndev", email = "support@superbryndev.com"}
+]
+keywords = ["superbryn", "voice-ai", "agents", "config-sync", "observability", "evaluation"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+
+# Zero runtime dependencies — the blocking client uses stdlib urllib.
+dependencies = []
+
+[project.optional-dependencies]
+async = [
+    "aiohttp>=3.9.0",
+]
+dev = [
+    "pytest>=7.0",
+    "ruff>=0.1.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/superbryndev/superbryn-python-sdk"
+Documentation = "https://docs.superbryn.com/advanced/agent-sync"
+Repository = "https://github.com/superbryndev/superbryn-python-sdk"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["superbryn*"]
+exclude = ["tests*"]
+
+[tool.setuptools.package-data]
+"superbryn.schemas" = ["*.json"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+exclude = [".venv", "build", "dist"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP"]
+ignore = ["E501"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

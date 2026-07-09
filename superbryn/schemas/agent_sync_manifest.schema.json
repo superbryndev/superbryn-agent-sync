@@ -1,0 +1,181 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://superbryn.com/schemas/agent_sync_manifest.schema.json",
+  "title": "AgentSyncManifest",
+  "description": "Canonical manifest pushed to POST /public-api/v1/agents/me/sync. Every field is optional; enums are only enforced when a value is present. An empty object is a valid manifest.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "source": {
+      "type": "string",
+      "enum": ["pipecat", "livekit", "vapi", "retell", "elevenlabs", "bland", "bolna", "hooman-labs", "shunya-labs", "custom"]
+    },
+    "source_agent_id": {"type": "string"},
+    "llm": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": {
+        "provider": {"type": "string"},
+        "model": {"type": "string"},
+        "temperature": {"type": "number"},
+        "max_tokens": {"type": "integer"},
+        "fallback": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "provider": {"type": "string"},
+            "model": {"type": "string"},
+            "temperature": {"type": "number"},
+            "max_tokens": {"type": "integer"}
+          }
+        },
+        "extra": {"type": "object"}
+      }
+    },
+    "stt": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": {
+        "provider": {"type": "string"},
+        "model": {"type": "string"},
+        "language": {"type": "string"},
+        "fallback": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "provider": {"type": "string"},
+            "model": {"type": "string"},
+            "language": {"type": "string"}
+          }
+        },
+        "extra": {"type": "object"}
+      }
+    },
+    "tts": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": {
+        "provider": {"type": "string"},
+        "voice_id": {"type": "string"},
+        "model": {"type": "string"},
+        "fallback": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "provider": {"type": "string"},
+            "voice_id": {"type": "string"},
+            "model": {"type": "string"}
+          }
+        },
+        "extra": {"type": "object"}
+      }
+    },
+    "voice": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": {
+        "provider": {"type": "string"},
+        "voice_id": {"type": "string"},
+        "style": {"type": "string"},
+        "fallback": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "provider": {"type": "string"},
+            "voice_id": {"type": "string"},
+            "style": {"type": "string"}
+          }
+        },
+        "extra": {"type": "object"}
+      }
+    },
+    "config": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "identity": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "name": {"type": "string"},
+            "type": {"type": "string", "enum": ["inbound", "outbound"]},
+            "agent_modality": {"type": "string", "enum": ["voice", "chat"]},
+            "description": {"type": "string"},
+            "pain_point": {"type": ["string", "null"]},
+            "gender": {"type": ["string", "null"]},
+            "age": {"type": "integer"},
+            "dob": {"type": "string", "format": "date"}
+          }
+        },
+        "behavior": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "prompt": {"type": ["string", "null"]},
+            "flow": {"type": ["object", "null"]}
+          }
+        },
+        "tools": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "name": {"type": "string"},
+              "description": {"type": "string"},
+              "schema": {},
+              "server": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "type": {"type": "string", "enum": ["http", "mcp", "native"]},
+                  "url": {"type": "string"}
+                }
+              }
+            }
+          }
+        },
+        "language": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "primary_language": {"type": ["string", "null"]},
+            "additional_languages": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "code": {"type": "string"},
+                  "priority": {"type": "integer"}
+                }
+              }
+            }
+          }
+        },
+        "telephony": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "phone_number": {"type": ["string", "null"]},
+            "ivr_config": {
+              "type": ["object", "null"],
+              "additionalProperties": false,
+              "properties": {
+                "enabled": {"type": "boolean"},
+                "number": {"type": "string"}
+              }
+            }
+          }
+        },
+        "additional_details": {"type": ["string", "null"]},
+        "policy_guardrails": {"type": ["string", "null"]},
+        "concurrency_calls": {"type": "integer"}
+      }
+    },
+    "__meta": {
+      "type": "object",
+      "description": "Server-managed. Stripped and overwritten on ingest — never sent by the client."
+    }
+  }
+}
