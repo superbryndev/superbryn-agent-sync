@@ -13,17 +13,15 @@ from __future__ import annotations
 from typing import Any
 
 from ..manifest import Manifest
-from ._util import assemble, clean_block, get_path, normalize_tools
+from ._util import as_dict, assemble, clean_block, get_path, normalize_tools
 
 
 def manifest_from_assistant(
     assistant: dict[str, Any], *, phone_number: str | None = None
 ) -> Manifest:
-    model = assistant.get("model") if isinstance(assistant.get("model"), dict) else {}
-    transcriber = (
-        assistant.get("transcriber") if isinstance(assistant.get("transcriber"), dict) else {}
-    )
-    voice = assistant.get("voice") if isinstance(assistant.get("voice"), dict) else {}
+    model = as_dict(assistant, "model")
+    transcriber = as_dict(assistant, "transcriber")
+    voice = as_dict(assistant, "voice")
 
     prompt = None
     messages = model.get("messages")

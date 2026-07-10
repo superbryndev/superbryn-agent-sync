@@ -17,6 +17,12 @@ def get_path(source: Any, *path: str) -> Any:
     return cur
 
 
+def as_dict(source: Any, key: str) -> dict[str, Any]:
+    """``source[key]`` when it's a dict, else ``{}`` — never raises."""
+    value = source.get(key) if isinstance(source, dict) else None
+    return value if isinstance(value, dict) else {}
+
+
 def clean_block(block: dict[str, Any]) -> dict[str, Any] | None:
     """Drop None values; return None when nothing survives."""
     cleaned = {k: v for k, v in block.items() if v is not None}
@@ -32,7 +38,8 @@ def normalize_tools(tools: Any) -> list[dict[str, Any]] | None:
         if not isinstance(tool, dict):
             continue
         # Providers wrap function tools differently; check common shapes.
-        fn = tool.get("function") if isinstance(tool.get("function"), dict) else tool
+        wrapped = tool.get("function")
+        fn = wrapped if isinstance(wrapped, dict) else tool
         entry = clean_block(
             {
                 "name": fn.get("name") if isinstance(fn.get("name"), str) else None,

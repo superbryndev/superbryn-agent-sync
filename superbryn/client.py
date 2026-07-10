@@ -20,15 +20,12 @@ import urllib.request
 from typing import Any
 
 from .__about__ import __version__
-from .canonical import compute_manifest_hash
 from .errors import ConfigurationError, error_for_status
 
 logger = logging.getLogger("superbryn")
 
 DEFAULT_BASE_URL = "https://api.superbryn.com"
 SYNC_PATH = "/public-api/v1/agents/me/sync"
-CONFIG_PATH = "/public-api/v1/agents/me/config"
-WITHDRAW_PATH = "/public-api/v1/agents/me/sync/draft"
 
 _USER_AGENT = f"superbryn-python/{__version__}"
 
@@ -59,28 +56,8 @@ class Superbryn:
 
     # ── public surface ───────────────────────────────────────────────────
 
-    def sync(self, manifest: dict[str, Any], precheck: bool = False) -> dict[str, Any]:
-        """Push a manifest. Lands as a pending draft (or a no-op).
-
-        With ``precheck=True`` the client first fetches the live config
-        and skips the POST entirely when the local hash matches the live
-        hash — useful on hot startup paths where even a no-op round trip
-        matters. Returns ``{"status": "noop", ...}`` in that case.
-        """
-        if precheck:
-            try:
-                live = self.get_config()
-                local_hash = compute_manifest_hash(manifest)
-                if live.get("hash") == local_hash:
-                    logger.info("superbryn.sync: precheck hash match — skipping push")
-                    return {
-                        "agent_row_id": live.get("agent_row_id"),
-                        "status": "noop",
-                        "hash": local_hash,
-                    }
-            except Exception:  # noqa: BLE001 — precheck is best-effort
-                logger.debug("superbryn.sync: precheck failed — pushing anyway", exc_info=True)
-
+    def sync(self, manifest: dict[str, Any]) -> dict[str, Any]:
+        """Push a manifest. Lands as a pending draft (or a no-op)."""
         result = self._request("POST", SYNC_PATH, body=dict(manifest))
         logger.info(
             "superbryn.sync: %s (hash=%s)",
@@ -88,29 +65,6 @@ class Superbryn:
             result.get("hash"),
         )
         return result
-
-    def get_config(self) -> dict[str, Any]:
-        """The latest live version's effective manifest + content hash.
-
-        Returns ``{agent_row_id, version_number, hash, manifest}``.
-        Raises :class:`superbryn.errors.NotFoundError` when the agent has
-        no live version yet.
-        """
-        return self._request("GET", CONFIG_PATH)
-
-    def withdraw_draft(self) -> dict[str, Any]:
-        """Withdraw the agent's pending draft.
-
-        Returns ``{agent_row_id, status: "withdrawn"}``. Raises
-        :class:`superbryn.errors.NotFoundError` when there is no pending
-        draft.
-        """
-        return self._request("DELETE", WITHDRAW_PATH)
-
-    def check_drift(self, manifest: dict[str, Any]) -> bool:
-        """True when the local manifest differs from the live version."""
-        live = self.get_config()
-        return live.get("hash") != compute_manifest_hash(manifest)
 
     # ── transport ────────────────────────────────────────────────────────
 
@@ -162,12 +116,6 @@ class AsyncSuperbryn:
 
     async def sync(self, manifest: dict[str, Any]) -> dict[str, Any]:
         return await self._request("POST", SYNC_PATH, body=dict(manifest))
-
-    async def get_config(self) -> dict[str, Any]:
-        return await self._request("GET", CONFIG_PATH)
-
-    async def withdraw_draft(self) -> dict[str, Any]:
-        return await self._request("DELETE", WITHDRAW_PATH)
 
     async def _request(
         self, method: str, path: str, body: dict[str, Any] | None = None

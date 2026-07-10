@@ -18,7 +18,6 @@ A pushed manifest **never changes your live agent directly**. It lands as a pend
 - **Framework adapters** — build a manifest directly from a Pipecat pipeline or a LiveKit agent; public attributes only, never API keys.
 - **Provider translators** — turn Vapi / Retell / ElevenLabs / Bland / Bolna agent JSON into a manifest, best-effort and never erroring on unknown fields.
 - **Source-code extraction** — `codescan` statically scans your agent's code (Python `ast`, conservative JS/TS regexes) to fill prompt, models, voice, and phone number when no API can.
-- **Drift detection** — `check_drift(manifest)` tells you when local config differs from the live version.
 - **Typed errors** — auth, scope, validation, business-rule, and rate-limit failures each raise a distinct exception with details.
 - **Bundled JSON Schema** — the canonical manifest schema ships inside the package.
 
@@ -88,10 +87,6 @@ Every manifest field is optional — send only what your integration knows. An e
 
 ```python
 client.sync(manifest)                  # push; lands as pending draft (or no-op)
-client.sync(manifest, precheck=True)   # GET live hash first, skip push if unchanged
-client.get_config()                    # live version's manifest + content hash
-client.withdraw_draft()                # withdraw your pending draft
-client.check_drift(manifest)           # True when local != live (hash compare)
 ```
 
 The async client mirrors the same surface (`pip install "superbryn-agent-sync[async]"`):
@@ -102,7 +97,7 @@ from superbryn import AsyncSuperbryn
 result = await AsyncSuperbryn(api_key="sk_agent_...").sync(manifest)
 ```
 
-## Hash Pre-Check
+## Content Hashing
 
 The SDK implements the same RFC 8785 (JCS) + SHA-256 content hashing as the server, so a client-side hash always agrees with the server's:
 
@@ -243,7 +238,7 @@ schema = load_manifest_schema()
 from superbryn import (
     AuthenticationError,     # 401 — bad/revoked key
     ScopeError,              # 403 — key is not agent-scoped
-    NotFoundError,           # 404 — no live version / no pending draft
+    NotFoundError,           # 404 — resource not found
     ManifestValidationError, # 400 — schema failure (has .details)
     BusinessRuleError,       # 422 — semantic rule failure (has .details)
     RateLimitError,          # 429 — back off and retry
@@ -267,7 +262,7 @@ logging.getLogger("superbryn").setLevel(logging.DEBUG)
 | `ConfigurationError: no API key` | Missing API key | Pass `api_key=` or set `SUPERBRYN_API_KEY` |
 | `AuthenticationError` (401) | Invalid or revoked key | Verify the key in SuperBryn → Developers → API Keys |
 | `ScopeError` (403) | Org-wide key used | Create an **agent-scoped** key (scope: *Single agent*) |
-| `NotFoundError` (404) | No live version / no pending draft | Sync a manifest first, or skip the withdraw |
+| `NotFoundError` (404) | Resource not found | Verify the key belongs to the intended agent |
 | `ManifestValidationError` (400) | Manifest fails schema validation | Inspect `.details` for the offending fields |
 | `BusinessRuleError` (422) | Semantic rule failure | Inspect `.details` and adjust the manifest |
 | `RateLimitError` (429) | Too many requests | Back off and retry |

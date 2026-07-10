@@ -10,7 +10,6 @@ from superbryn import (
     ConfigurationError,
     Manifest,
     ManifestValidationError,
-    NotFoundError,
     RateLimitError,
     ScopeError,
     Superbryn,
@@ -86,26 +85,6 @@ class StubHandler(BaseHTTPRequestHandler):
             },
         )
 
-    def do_GET(self):  # noqa: N802
-        record = self._record()
-        if record["api_key"] == "no-live":
-            return self._respond(404, {"error": "NO_LIVE_VERSION"})
-        return self._respond(
-            200,
-            {
-                "agent_row_id": "row-1",
-                "version_number": 3,
-                "hash": LIVE_HASH,
-                "manifest": LIVE_MANIFEST,
-            },
-        )
-
-    def do_DELETE(self):  # noqa: N802
-        record = self._record()
-        if record["api_key"] == "no-draft":
-            return self._respond(404, {"error": "NO_PENDING_DRAFT"})
-        return self._respond(200, {"agent_row_id": "row-2", "status": "withdrawn"})
-
     def log_message(self, *args):  # silence stub server logging
         pass
 
@@ -148,28 +127,6 @@ def test_sync_noop_when_hash_matches_live(stub_url):
     assert result["hash"] == LIVE_HASH
 
 
-def test_sync_precheck_skips_post(stub_url):
-    StubHandler.requests.clear()
-    client = Superbryn(api_key="good", base_url=stub_url)
-    result = client.sync(dict(LIVE_MANIFEST), precheck=True)
-    assert result["status"] == "noop"
-    methods = [r["method"] for r in StubHandler.requests]
-    assert methods == ["GET"]  # no POST fired
-
-
-def test_get_config_and_drift(stub_url):
-    client = Superbryn(api_key="good", base_url=stub_url)
-    config = client.get_config()
-    assert config["version_number"] == 3
-    assert client.check_drift(dict(LIVE_MANIFEST)) is False
-    assert client.check_drift({"config": {"identity": {"name": "Renamed Agent"}}}) is True
-
-
-def test_withdraw_draft(stub_url):
-    client = Superbryn(api_key="good", base_url=stub_url)
-    assert client.withdraw_draft()["status"] == "withdrawn"
-
-
 def test_error_mapping(stub_url):
     manifest = {"llm": {"provider": "x"}}
     with pytest.raises(AuthenticationError):
@@ -178,10 +135,6 @@ def test_error_mapping(stub_url):
         Superbryn(api_key="org-key", base_url=stub_url).sync(manifest)
     with pytest.raises(RateLimitError):
         Superbryn(api_key="limited", base_url=stub_url).sync(manifest)
-    with pytest.raises(NotFoundError):
-        Superbryn(api_key="no-live", base_url=stub_url).get_config()
-    with pytest.raises(NotFoundError):
-        Superbryn(api_key="no-draft", base_url=stub_url).withdraw_draft()
 
     with pytest.raises(ManifestValidationError) as exc_info:
         Superbryn(api_key="good", base_url=stub_url).sync({"confg": {}})

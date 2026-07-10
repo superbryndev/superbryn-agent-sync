@@ -12,7 +12,7 @@ from __future__ import annotations
 from typing import Any
 
 from ..manifest import Manifest
-from ._util import assemble, clean_block, get_path
+from ._util import as_dict, assemble, clean_block, get_path
 
 
 def _combine_prompts(agent_prompts: Any) -> str | None:
@@ -31,30 +31,17 @@ def _combine_prompts(agent_prompts: Any) -> str | None:
 
 
 def manifest_from_agent(agent: dict[str, Any], *, phone_number: str | None = None) -> Manifest:
-    tasks = agent.get("tasks") if isinstance(agent.get("tasks"), list) else []
+    tasks_raw = agent.get("tasks")
+    tasks = tasks_raw if isinstance(tasks_raw, list) else []
     first_task = tasks[0] if tasks and isinstance(tasks[0], dict) else {}
-    tools_config = (
-        first_task.get("tools_config") if isinstance(first_task.get("tools_config"), dict) else {}
-    )
+    tools_config = as_dict(first_task, "tools_config")
 
-    llm_agent = (
-        tools_config.get("llm_agent") if isinstance(tools_config.get("llm_agent"), dict) else {}
-    )
+    llm_agent = as_dict(tools_config, "llm_agent")
     # Newer Bolna shapes nest the LLM settings one level down.
-    llm_details = (
-        llm_agent.get("llm_config") if isinstance(llm_agent.get("llm_config"), dict) else llm_agent
-    )
-    synthesizer = (
-        tools_config.get("synthesizer") if isinstance(tools_config.get("synthesizer"), dict) else {}
-    )
-    synth_config = (
-        synthesizer.get("provider_config")
-        if isinstance(synthesizer.get("provider_config"), dict)
-        else synthesizer
-    )
-    transcriber = (
-        tools_config.get("transcriber") if isinstance(tools_config.get("transcriber"), dict) else {}
-    )
+    llm_details = as_dict(llm_agent, "llm_config") or llm_agent
+    synthesizer = as_dict(tools_config, "synthesizer")
+    synth_config = as_dict(synthesizer, "provider_config") or synthesizer
+    transcriber = as_dict(tools_config, "transcriber")
 
     llm = clean_block(
         {

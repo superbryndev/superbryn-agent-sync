@@ -19,8 +19,10 @@ from ._util import assemble, clean_block, normalize_tools
 
 
 def _combine_prompt(llm: dict[str, Any]) -> str | None:
-    general = llm.get("general_prompt") if isinstance(llm.get("general_prompt"), str) else ""
-    states = llm.get("states") if isinstance(llm.get("states"), list) else []
+    general_raw = llm.get("general_prompt")
+    general = general_raw if isinstance(general_raw, str) else ""
+    states_raw = llm.get("states")
+    states = states_raw if isinstance(states_raw, list) else []
     blocks = []
     for state in states:
         if not isinstance(state, dict):
