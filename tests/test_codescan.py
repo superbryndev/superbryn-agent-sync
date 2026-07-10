@@ -132,6 +132,8 @@ def test_fill_manifest_gaps_api_values_win(py_project):
 
 def test_broken_python_file_is_skipped(tmp_path):
     (tmp_path / "broken.py").write_text("def oops(:\n")
-    (tmp_path / "ok.py").write_text('agent = Agent(prompt="A perfectly reasonable and long system prompt for testing.")')
+    (tmp_path / "ok.py").write_text(
+        'agent = Agent(prompt="A perfectly reasonable and long system prompt for testing.")'
+    )
     manifest = build_manifest_from_source(tmp_path)
     assert "system prompt for testing" in manifest["config"]["behavior"]["prompt"]

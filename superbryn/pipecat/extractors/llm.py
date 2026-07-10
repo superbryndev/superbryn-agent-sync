@@ -19,11 +19,15 @@ def extract_llm(processor: Any) -> dict[str, Any] | None:
     if isinstance(model, str) and model:
         block["model"] = model
 
-    temperature = read_attr_chain(processor, "temperature", "_settings.temperature", "settings.temperature")
+    temperature = read_attr_chain(
+        processor, "temperature", "_settings.temperature", "settings.temperature"
+    )
     if isinstance(temperature, (int, float)):
         block["temperature"] = float(temperature)
 
-    max_tokens = read_attr_chain(processor, "max_tokens", "_settings.max_tokens", "settings.max_tokens")
+    max_tokens = read_attr_chain(
+        processor, "max_tokens", "_settings.max_tokens", "settings.max_tokens"
+    )
     if isinstance(max_tokens, int):
         block["max_tokens"] = max_tokens
 

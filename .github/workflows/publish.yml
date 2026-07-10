@@ -1,0 +1,94 @@
+name: Publish to PyPI
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install build twine bump2version tomli
+
+      - name: Auto-increment version
+        id: bump
+        run: |
+          # Get last commit message
+          COMMIT_MSG=$(git log -1 --pretty=%B)
+          echo "Commit message: $COMMIT_MSG"
+
+          # Idempotency guard: skip the whole publish if HEAD is already an
+          # auto-bump commit. This makes manual workflow_dispatch / "Re-run
+          # all jobs" safe — otherwise every re-run would bump and ship a
+          # new patch version on top of an already-published release.
+          if echo "$COMMIT_MSG" | grep -q '^Bump version \[skip ci\]'; then
+            echo "HEAD is already a 'Bump version [skip ci]' commit; nothing to publish."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Determine version bump type from commit message
+          if echo "$COMMIT_MSG" | grep -qiE '\[major\]|BREAKING CHANGE'; then
+            echo "Bumping MAJOR version (breaking changes)"
+            bump2version major --allow-dirty --no-commit --no-tag
+          elif echo "$COMMIT_MSG" | grep -qiE '\[minor\]|feat:'; then
+            echo "Bumping MINOR version (new features)"
+            bump2version minor --allow-dirty --no-commit --no-tag
+          else
+            echo "Bumping PATCH version (bug fixes)"
+            bump2version patch --allow-dirty --no-commit --no-tag
+          fi
+
+          # Show new version
+          NEW_VERSION=$(python -c "import tomli; print(tomli.load(open('pyproject.toml', 'rb'))['project']['version'])")
+          echo "Publishing version: $NEW_VERSION"
+          echo "skip=false" >> "$GITHUB_OUTPUT"
+
+      - name: Refresh uv.lock with new version
+        if: steps.bump.outputs.skip != 'true'
+        run: uv lock
+
+      - name: Commit version bump
+        if: steps.bump.outputs.skip != 'true'
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add pyproject.toml superbryn/__about__.py .bumpversion.cfg uv.lock
+          if git diff --cached --quiet; then
+            echo "No version changes to commit"
+          else
+            git commit -m "Bump version [skip ci]"
+            git push
+          fi
+
+      - name: Build package
+        if: steps.bump.outputs.skip != 'true'
+        run: python -m build
+
+      - name: Publish to PyPI
+        if: steps.bump.outputs.skip != 'true'
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
+        run: twine upload dist/*

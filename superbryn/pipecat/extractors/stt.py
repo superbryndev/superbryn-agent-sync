@@ -19,7 +19,9 @@ def extract_stt(processor: Any) -> dict[str, Any] | None:
     if isinstance(model, str) and model:
         block["model"] = model
 
-    language = read_attr_chain(processor, "language", "_language", "_settings.language", "settings.language")
+    language = read_attr_chain(
+        processor, "language", "_language", "_settings.language", "settings.language"
+    )
     if isinstance(language, str) and language:
         block["language"] = language
 

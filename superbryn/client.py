@@ -48,7 +48,9 @@ class Superbryn:
         timeout: float = 30.0,
     ):
         self.api_key = api_key or os.getenv("SUPERBRYN_API_KEY") or ""
-        self.base_url = (base_url or os.getenv("SUPERBRYN_BASE_URL") or DEFAULT_BASE_URL).rstrip("/")
+        self.base_url = (base_url or os.getenv("SUPERBRYN_BASE_URL") or DEFAULT_BASE_URL).rstrip(
+            "/"
+        )
         self.timeout = timeout
         if not self.api_key:
             raise ConfigurationError(
@@ -112,7 +114,9 @@ class Superbryn:
 
     # ── transport ────────────────────────────────────────────────────────
 
-    def _request(self, method: str, path: str, body: dict[str, Any] | None = None) -> dict[str, Any]:
+    def _request(
+        self, method: str, path: str, body: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
         url = self.base_url + path
         data = json.dumps(body).encode("utf-8") if body is not None else None
         request = urllib.request.Request(
@@ -147,7 +151,9 @@ class AsyncSuperbryn:
         timeout: float = 30.0,
     ):
         self.api_key = api_key or os.getenv("SUPERBRYN_API_KEY") or ""
-        self.base_url = (base_url or os.getenv("SUPERBRYN_BASE_URL") or DEFAULT_BASE_URL).rstrip("/")
+        self.base_url = (base_url or os.getenv("SUPERBRYN_BASE_URL") or DEFAULT_BASE_URL).rstrip(
+            "/"
+        )
         self.timeout = timeout
         if not self.api_key:
             raise ConfigurationError(

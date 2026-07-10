@@ -49,7 +49,7 @@ class Manifest(dict):
     """A built AgentSyncManifest. A plain ``dict`` subclass — JSON-ready."""
 
     @classmethod
-    def builder(cls, source: str = "custom") -> "ManifestBuilder":
+    def builder(cls, source: str = "custom") -> ManifestBuilder:
         return ManifestBuilder(source=source)
 
     @property
@@ -75,7 +75,7 @@ class ManifestBuilder:
 
     # ── envelope ─────────────────────────────────────────────────────────
 
-    def set_source_agent_id(self, source_agent_id: str) -> "ManifestBuilder":
+    def set_source_agent_id(self, source_agent_id: str) -> ManifestBuilder:
         self._manifest["source_agent_id"] = source_agent_id
         return self
 
@@ -89,7 +89,7 @@ class ManifestBuilder:
         max_tokens: Any = _UNSET,
         fallback: Any = _UNSET,
         extra: Any = _UNSET,
-    ) -> "ManifestBuilder":
+    ) -> ManifestBuilder:
         self._manifest["llm"] = _clean(
             {
                 "provider": provider,
@@ -109,7 +109,7 @@ class ManifestBuilder:
         language: Any = _UNSET,
         fallback: Any = _UNSET,
         extra: Any = _UNSET,
-    ) -> "ManifestBuilder":
+    ) -> ManifestBuilder:
         self._manifest["stt"] = _clean(
             {
                 "provider": provider,
@@ -128,7 +128,7 @@ class ManifestBuilder:
         model: Any = _UNSET,
         fallback: Any = _UNSET,
         extra: Any = _UNSET,
-    ) -> "ManifestBuilder":
+    ) -> ManifestBuilder:
         self._manifest["tts"] = _clean(
             {
                 "provider": provider,
@@ -147,7 +147,7 @@ class ManifestBuilder:
         style: Any = _UNSET,
         fallback: Any = _UNSET,
         extra: Any = _UNSET,
-    ) -> "ManifestBuilder":
+    ) -> ManifestBuilder:
         self._manifest["voice"] = _clean(
             {
                 "provider": provider,
@@ -171,7 +171,7 @@ class ManifestBuilder:
         gender: Any = _UNSET,
         age: Any = _UNSET,
         dob: Any = _UNSET,
-    ) -> "ManifestBuilder":
+    ) -> ManifestBuilder:
         self._config["identity"] = _clean(
             {
                 "name": name,
@@ -186,7 +186,7 @@ class ManifestBuilder:
         )
         return self
 
-    def set_behavior(self, prompt: Any = _UNSET, flow: Any = _UNSET) -> "ManifestBuilder":
+    def set_behavior(self, prompt: Any = _UNSET, flow: Any = _UNSET) -> ManifestBuilder:
         self._config["behavior"] = _clean({"prompt": prompt, "flow": flow})
         return self
 
@@ -196,7 +196,7 @@ class ManifestBuilder:
         description: Any = _UNSET,
         schema: Any = _UNSET,
         server: Any = _UNSET,
-    ) -> "ManifestBuilder":
+    ) -> ManifestBuilder:
         self._tools.append(
             _clean({"name": name, "description": description, "schema": schema, "server": server})
         )
@@ -204,25 +204,27 @@ class ManifestBuilder:
 
     def set_language(
         self, primary_language: Any = _UNSET, additional_languages: Any = _UNSET
-    ) -> "ManifestBuilder":
+    ) -> ManifestBuilder:
         self._config["language"] = _clean(
             {"primary_language": primary_language, "additional_languages": additional_languages}
         )
         return self
 
-    def set_telephony(self, phone_number: Any = _UNSET, ivr_config: Any = _UNSET) -> "ManifestBuilder":
+    def set_telephony(
+        self, phone_number: Any = _UNSET, ivr_config: Any = _UNSET
+    ) -> ManifestBuilder:
         self._config["telephony"] = _clean({"phone_number": phone_number, "ivr_config": ivr_config})
         return self
 
-    def set_additional_details(self, additional_details: str | None) -> "ManifestBuilder":
+    def set_additional_details(self, additional_details: str | None) -> ManifestBuilder:
         self._config["additional_details"] = additional_details
         return self
 
-    def set_policy_guardrails(self, policy_guardrails: str | None) -> "ManifestBuilder":
+    def set_policy_guardrails(self, policy_guardrails: str | None) -> ManifestBuilder:
         self._config["policy_guardrails"] = policy_guardrails
         return self
 
-    def set_concurrency_calls(self, concurrency_calls: int) -> "ManifestBuilder":
+    def set_concurrency_calls(self, concurrency_calls: int) -> ManifestBuilder:
         self._config["concurrency_calls"] = concurrency_calls
         return self
 

@@ -18,7 +18,9 @@ def test_builder_full_manifest_shape():
             schema={"type": "object"},
             server={"type": "http", "url": "https://api.example.com/orders"},
         )
-        .set_language(primary_language="en-US", additional_languages=[{"code": "es-US", "priority": 1}])
+        .set_language(
+            primary_language="en-US", additional_languages=[{"code": "es-US", "priority": 1}]
+        )
         .set_telephony(phone_number="+15551234567", ivr_config={"enabled": True, "number": "1"})
         .set_additional_details("Tier 1 support only")
         .set_policy_guardrails("# Guardrails")
@@ -27,7 +29,12 @@ def test_builder_full_manifest_shape():
     )
 
     assert manifest["source"] == "custom"
-    assert manifest["llm"] == {"provider": "openai", "model": "gpt-4o", "temperature": 0.7, "max_tokens": 1024}
+    assert manifest["llm"] == {
+        "provider": "openai",
+        "model": "gpt-4o",
+        "temperature": 0.7,
+        "max_tokens": 1024,
+    }
     assert manifest["stt"]["language"] == "en-US"
     assert manifest["voice"]["voice_id"] == "v1"
     config = manifest["config"]

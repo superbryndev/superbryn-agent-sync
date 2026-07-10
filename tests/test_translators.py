@@ -14,7 +14,13 @@ def test_vapi_assistant():
             "maxTokens": 512,
             "messages": [{"role": "system", "content": "You are helpful."}],
             "tools": [
-                {"function": {"name": "lookup", "description": "d", "parameters": {"type": "object"}}},
+                {
+                    "function": {
+                        "name": "lookup",
+                        "description": "d",
+                        "parameters": {"type": "object"},
+                    }
+                },
             ],
         },
         "transcriber": {"provider": "deepgram", "model": "nova-2", "language": "en-US"},
@@ -23,7 +29,12 @@ def test_vapi_assistant():
     manifest = vapi.manifest_from_assistant(assistant, phone_number="+15551234567")
     assert manifest["source"] == "vapi"
     assert manifest["source_agent_id"] == "asst-1"
-    assert manifest["llm"] == {"provider": "openai", "model": "gpt-4o", "temperature": 0.6, "max_tokens": 512}
+    assert manifest["llm"] == {
+        "provider": "openai",
+        "model": "gpt-4o",
+        "temperature": 0.6,
+        "max_tokens": 512,
+    }
     assert manifest["stt"] == {"provider": "deepgram", "model": "nova-2", "language": "en-US"}
     assert manifest["voice"] == {"provider": "cartesia", "voice_id": "v-1"}
     config = manifest["config"]
@@ -35,7 +46,12 @@ def test_vapi_assistant():
 
 
 def test_retell_agent_with_llm():
-    agent = {"agent_id": "ag-1", "agent_name": "Retell Agent", "voice_id": "11labs-Adrian", "language": "en-US"}
+    agent = {
+        "agent_id": "ag-1",
+        "agent_name": "Retell Agent",
+        "voice_id": "11labs-Adrian",
+        "language": "en-US",
+    }
     llm = {
         "model": "gpt-4o",
         "general_prompt": "Be nice.",
@@ -72,14 +88,26 @@ def test_elevenlabs_agent():
     manifest = elevenlabs.manifest_from_agent(agent)
     assert manifest["source"] == "elevenlabs"
     assert manifest["llm"] == {"provider": "elevenlabs", "model": "gemini-2.0-flash"}
-    assert manifest["tts"] == {"provider": "elevenlabs", "model": "eleven_turbo_v2", "voice_id": "voice-9"}
+    assert manifest["tts"] == {
+        "provider": "elevenlabs",
+        "model": "eleven_turbo_v2",
+        "voice_id": "voice-9",
+    }
     assert manifest["voice"] == {"provider": "elevenlabs", "voice_id": "voice-9"}
     assert manifest["config"]["behavior"] == {"prompt": "You are calm."}
 
 
 def test_bland_agent_wrapped():
     manifest = bland.manifest_from_agent(
-        {"agent": {"agent_id": "bl-1", "prompt": "Do things.", "voice": "maya", "model": "base", "language": "en"}}
+        {
+            "agent": {
+                "agent_id": "bl-1",
+                "prompt": "Do things.",
+                "voice": "maya",
+                "model": "base",
+                "language": "en",
+            }
+        }
     )
     assert manifest["source"] == "bland"
     assert manifest["source_agent_id"] == "bl-1"
@@ -99,8 +127,13 @@ def test_bolna_agent():
         "tasks": [
             {
                 "tools_config": {
-                    "llm_agent": {"llm_config": {"provider": "openai", "model": "gpt-4o", "temperature": 0.4}},
-                    "synthesizer": {"provider": "elevenlabs", "provider_config": {"voice": "Rachel"}},
+                    "llm_agent": {
+                        "llm_config": {"provider": "openai", "model": "gpt-4o", "temperature": 0.4}
+                    },
+                    "synthesizer": {
+                        "provider": "elevenlabs",
+                        "provider_config": {"voice": "Rachel"},
+                    },
                     "transcriber": {"provider": "deepgram", "model": "nova-2", "language": "en"},
                 }
             }

@@ -36,7 +36,9 @@ def normalize_tools(tools: Any) -> list[dict[str, Any]] | None:
         entry = clean_block(
             {
                 "name": fn.get("name") if isinstance(fn.get("name"), str) else None,
-                "description": fn.get("description") if isinstance(fn.get("description"), str) else None,
+                "description": fn.get("description")
+                if isinstance(fn.get("description"), str)
+                else None,
                 "schema": fn.get("parameters") or fn.get("schema"),
             }
         )

@@ -161,7 +161,11 @@ class _PyVisitor(ast.NodeVisitor):
             return self.assignments.get(node.id)
         if isinstance(node, ast.JoinedStr):
             # f-string: keep only the constant parts (best effort).
-            parts = [v.value for v in node.values if isinstance(v, ast.Constant) and isinstance(v.value, str)]
+            parts = [
+                v.value
+                for v in node.values
+                if isinstance(v, ast.Constant) and isinstance(v.value, str)
+            ]
             return "".join(parts) or None
         return None
 
@@ -177,7 +181,9 @@ class _PyVisitor(ast.NodeVisitor):
             value = self._resolve(keyword.value)
             if value is None or value == "":
                 continue
-            bucket.append(Finding(file=self.file, key=key, value=value, role=role, provider=provider))
+            bucket.append(
+                Finding(file=self.file, key=key, value=value, role=role, provider=provider)
+            )
         self.generic_visit(node)
 
 
@@ -234,7 +240,12 @@ def _scan_js(path: Path, findings: ScanFindings) -> None:
             continue
         raw = match.group("value")
         bucket.append(
-            Finding(file=str(path), key=key, value=float(raw) if "." in raw else int(raw), provider=provider)
+            Finding(
+                file=str(path),
+                key=key,
+                value=float(raw) if "." in raw else int(raw),
+                provider=provider,
+            )
         )
 
 

@@ -66,10 +66,15 @@ class StubHandler(BaseHTTPRequestHandler):
         if phone == "555-1234":
             return self._respond(
                 422,
-                {"error": "BUSINESS_RULE_VIOLATION", "details": [{"path": "config.telephony.phone_number"}]},
+                {
+                    "error": "BUSINESS_RULE_VIOLATION",
+                    "details": [{"path": "config.telephony.phone_number"}],
+                },
             )
         if compute_manifest_hash(body) == LIVE_HASH:
-            return self._respond(200, {"agent_row_id": "row-1", "status": "noop", "hash": LIVE_HASH})
+            return self._respond(
+                200, {"agent_row_id": "row-1", "status": "noop", "hash": LIVE_HASH}
+            )
         return self._respond(
             201,
             {
@@ -87,7 +92,12 @@ class StubHandler(BaseHTTPRequestHandler):
             return self._respond(404, {"error": "NO_LIVE_VERSION"})
         return self._respond(
             200,
-            {"agent_row_id": "row-1", "version_number": 3, "hash": LIVE_HASH, "manifest": LIVE_MANIFEST},
+            {
+                "agent_row_id": "row-1",
+                "version_number": 3,
+                "hash": LIVE_HASH,
+                "manifest": LIVE_MANIFEST,
+            },
         )
 
     def do_DELETE(self):  # noqa: N802

@@ -33,16 +33,28 @@ def _combine_prompts(agent_prompts: Any) -> str | None:
 def manifest_from_agent(agent: dict[str, Any], *, phone_number: str | None = None) -> Manifest:
     tasks = agent.get("tasks") if isinstance(agent.get("tasks"), list) else []
     first_task = tasks[0] if tasks and isinstance(tasks[0], dict) else {}
-    tools_config = first_task.get("tools_config") if isinstance(first_task.get("tools_config"), dict) else {}
-
-    llm_agent = tools_config.get("llm_agent") if isinstance(tools_config.get("llm_agent"), dict) else {}
-    # Newer Bolna shapes nest the LLM settings one level down.
-    llm_details = llm_agent.get("llm_config") if isinstance(llm_agent.get("llm_config"), dict) else llm_agent
-    synthesizer = tools_config.get("synthesizer") if isinstance(tools_config.get("synthesizer"), dict) else {}
-    synth_config = (
-        synthesizer.get("provider_config") if isinstance(synthesizer.get("provider_config"), dict) else synthesizer
+    tools_config = (
+        first_task.get("tools_config") if isinstance(first_task.get("tools_config"), dict) else {}
     )
-    transcriber = tools_config.get("transcriber") if isinstance(tools_config.get("transcriber"), dict) else {}
+
+    llm_agent = (
+        tools_config.get("llm_agent") if isinstance(tools_config.get("llm_agent"), dict) else {}
+    )
+    # Newer Bolna shapes nest the LLM settings one level down.
+    llm_details = (
+        llm_agent.get("llm_config") if isinstance(llm_agent.get("llm_config"), dict) else llm_agent
+    )
+    synthesizer = (
+        tools_config.get("synthesizer") if isinstance(tools_config.get("synthesizer"), dict) else {}
+    )
+    synth_config = (
+        synthesizer.get("provider_config")
+        if isinstance(synthesizer.get("provider_config"), dict)
+        else synthesizer
+    )
+    transcriber = (
+        tools_config.get("transcriber") if isinstance(tools_config.get("transcriber"), dict) else {}
+    )
 
     llm = clean_block(
         {
@@ -76,13 +88,17 @@ def manifest_from_agent(agent: dict[str, Any], *, phone_number: str | None = Non
         llm=llm,
         stt=stt,
         tts=tts,
-        voice=clean_block({"provider": synthesizer.get("provider"), "voice_id": voice_id}) if voice_id else None,
+        voice=clean_block({"provider": synthesizer.get("provider"), "voice_id": voice_id})
+        if voice_id
+        else None,
         name=agent.get("agent_name") if isinstance(agent.get("agent_name"), str) else None,
         prompt=_combine_prompts(agent.get("agent_prompts")),
         primary_language=(
             synth_config.get("language")
             if isinstance(synth_config.get("language"), str)
-            else transcriber.get("language") if isinstance(transcriber.get("language"), str) else None
+            else transcriber.get("language")
+            if isinstance(transcriber.get("language"), str)
+            else None
         ),
         phone_number=phone_number,
     )

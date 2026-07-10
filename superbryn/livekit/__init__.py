@@ -112,7 +112,10 @@ def build_manifest_from_agent(
     if isinstance(tts_block, dict) and tts_block.get("voice_id"):
         manifest["voice"] = {
             k: v
-            for k, v in (("provider", tts_block.get("provider")), ("voice_id", tts_block["voice_id"]))
+            for k, v in (
+                ("provider", tts_block.get("provider")),
+                ("voice_id", tts_block["voice_id"]),
+            )
             if v
         }
 
