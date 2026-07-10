@@ -1,4 +1,4 @@
-# superbryn
+# superbryn-agent-sync
 
 SuperBryn SDK for Python — sync your voice-agent configuration to SuperBryn for review, versioning, and monitoring.
 
@@ -7,8 +7,8 @@ A pushed manifest **never changes your live agent directly**. It lands as a pend
 ## Install
 
 ```bash
-pip install superbryn            # zero runtime dependencies
-pip install "superbryn[async]"   # + aiohttp for the async client
+pip install superbryn-agent-sync            # zero runtime dependencies
+pip install "superbryn-agent-sync[async]"   # + aiohttp for the async client
 ```
 
 ## Requirements
@@ -59,7 +59,7 @@ client.withdraw_draft()                # withdraw your pending draft
 client.check_drift(manifest)           # True when local != live (hash compare)
 ```
 
-The async client mirrors the same surface (`pip install "superbryn[async]"`):
+The async client mirrors the same surface (`pip install "superbryn-agent-sync[async]"`):
 
 ```python
 from superbryn import AsyncSuperbryn

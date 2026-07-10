@@ -2,7 +2,7 @@
 
 Zero runtime dependencies — the blocking path uses stdlib ``urllib``.
 An async variant is available when ``aiohttp`` is installed
-(``pip install superbryn[async]``).
+(``pip install superbryn-agent-sync[async]``).
 
 Requires an **agent-scoped** API key (created against a single agent in
 the SuperBryn dashboard); org-scoped keys are rejected. A pushed
@@ -142,7 +142,7 @@ class Superbryn:
 
 
 class AsyncSuperbryn:
-    """Async client (requires ``aiohttp`` — ``pip install superbryn[async]``)."""
+    """Async client (requires ``aiohttp`` — ``pip install superbryn-agent-sync[async]``)."""
 
     def __init__(
         self,
