@@ -38,9 +38,10 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/superbryndev/superbryn-python-sdk"
+Homepage = "https://github.com/superbryndev/superbryn-agent-sync"
 Documentation = "https://docs.superbryn.com/advanced/agent-sync"
-Repository = "https://github.com/superbryndev/superbryn-python-sdk"
+Repository = "https://github.com/superbryndev/superbryn-agent-sync"
+Issues = "https://github.com/superbryndev/superbryn-agent-sync/issues"
 
 [tool.setuptools.packages.find]
 where = ["."]

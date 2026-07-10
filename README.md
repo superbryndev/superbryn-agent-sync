@@ -1,8 +1,31 @@
-# superbryn-agent-sync
+# SuperBryn Agent Sync
 
-SuperBryn SDK for Python — sync your voice-agent configuration to SuperBryn for review, versioning, and monitoring.
+[![PyPI version](https://img.shields.io/badge/pypi-v0.1.2-orange)](https://pypi.org/project/superbryn-agent-sync/)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Zero dependencies](https://img.shields.io/badge/dependencies-zero-brightgreen.svg)](https://pypi.org/project/superbryn-agent-sync/)
+
+Sync your voice-agent configuration to [SuperBryn](https://www.superbryn.com) for review, versioning, and monitoring — from any framework (Pipecat, LiveKit) or provider (Vapi, Retell, ElevenLabs, Bland, Bolna, …), or straight from your source code.
 
 A pushed manifest **never changes your live agent directly**. It lands as a pending draft that you review, diff, and approve in the SuperBryn dashboard. On approval (once verification passes), SuperBryn promotes the draft to a new agent version.
+
+## Features
+
+- **Zero runtime dependencies** — the blocking client uses stdlib `urllib`; add `aiohttp` only if you want the async client.
+- **Draft-first sync** — every push lands as a pending draft for human review; nothing goes live without approval.
+- **Client-side content hashing** — same RFC 8785 (JCS) + SHA-256 hashing as the server, so you can pre-check and skip no-op pushes.
+- **Manifest builder** — fluent, typed builder for identity, behavior, LLM / STT / TTS / voice, tools, language, telephony, guardrails, and concurrency.
+- **Framework adapters** — build a manifest directly from a Pipecat pipeline or a LiveKit agent; public attributes only, never API keys.
+- **Provider translators** — turn Vapi / Retell / ElevenLabs / Bland / Bolna agent JSON into a manifest, best-effort and never erroring on unknown fields.
+- **Source-code extraction** — `codescan` statically scans your agent's code (Python `ast`, conservative JS/TS regexes) to fill prompt, models, voice, and phone number when no API can.
+- **Drift detection** — `check_drift(manifest)` tells you when local config differs from the live version.
+- **Typed errors** — auth, scope, validation, business-rule, and rate-limit failures each raise a distinct exception with details.
+- **Bundled JSON Schema** — the canonical manifest schema ships inside the package.
+
+## Prerequisites
+
+- Python **3.10+**
+- An **agent-scoped** API key created in the SuperBryn dashboard (**Developers → API Keys**, scope: *Single agent*). Org-wide keys are rejected by the sync endpoints.
 
 ## Install
 
@@ -11,45 +34,57 @@ pip install superbryn-agent-sync            # zero runtime dependencies
 pip install "superbryn-agent-sync[async]"   # + aiohttp for the async client
 ```
 
-## Requirements
-
-- An **agent-scoped** API key created in the SuperBryn dashboard (**Developers → API Keys**, scope: *Single agent*). Org-wide keys are rejected by the sync endpoints.
-
-## Quick start
+The import name is `superbryn`:
 
 ```python
 from superbryn import Superbryn, Manifest
-
-manifest = (
-    Manifest.builder(source="custom")
-    .set_identity(name="Support Agent", type="inbound", agent_modality="voice")
-    .set_behavior(prompt=open("system_prompt.txt").read())
-    .set_llm(provider="openai", model="gpt-4o", temperature=0.7, max_tokens=1024)
-    .set_stt(provider="deepgram", model="nova-2", language="en-US")
-    .set_tts(provider="cartesia", model="sonic-2")
-    .set_voice(provider="cartesia", voice_id="a0e99841-...")
-    .add_tool(
-        name="lookup_order",
-        description="Look up an order by ID",
-        schema={"type": "object", "properties": {}},
-        server={"type": "http", "url": "https://api.example.com/orders"},
-    )
-    .set_language(primary_language="en-US", additional_languages=[{"code": "es-US", "priority": 1}])
-    .set_telephony(phone_number="+15551234567")
-    .set_policy_guardrails(open("guardrails.md").read())
-    .set_concurrency_calls(10)
-    .build()
-)
-
-client = Superbryn(api_key="sk_agent_...")  # or SUPERBRYN_API_KEY env var
-result = client.sync(manifest)
-# {"agent_row_id": "...", "approval_status": "pending", "verification_status": "...",
-#  "hash": "...", "change_types": [...]}
 ```
+
+## Quick Start
+
+1. Set your agent-scoped API key in the environment:
+
+   ```bash
+   export SUPERBRYN_API_KEY="sk_agent_..."
+   ```
+
+2. Build a manifest and sync it:
+
+   ```python
+   from superbryn import Superbryn, Manifest
+
+   manifest = (
+       Manifest.builder(source="custom")
+       .set_identity(name="Support Agent", type="inbound", agent_modality="voice")
+       .set_behavior(prompt=open("system_prompt.txt").read())
+       .set_llm(provider="openai", model="gpt-4o", temperature=0.7, max_tokens=1024)
+       .set_stt(provider="deepgram", model="nova-2", language="en-US")
+       .set_tts(provider="cartesia", model="sonic-2")
+       .set_voice(provider="cartesia", voice_id="a0e99841-...")
+       .add_tool(
+           name="lookup_order",
+           description="Look up an order by ID",
+           schema={"type": "object", "properties": {}},
+           server={"type": "http", "url": "https://api.example.com/orders"},
+       )
+       .set_language(primary_language="en-US", additional_languages=[{"code": "es-US", "priority": 1}])
+       .set_telephony(phone_number="+15551234567")
+       .set_policy_guardrails(open("guardrails.md").read())
+       .set_concurrency_calls(10)
+       .build()
+   )
+
+   client = Superbryn()  # or Superbryn(api_key="sk_agent_...")
+   result = client.sync(manifest)
+   # {"agent_row_id": "...", "approval_status": "pending", "verification_status": "...",
+   #  "hash": "...", "change_types": [...]}
+   ```
+
+3. Open the SuperBryn dashboard, review the pending draft, and approve it to promote a new agent version.
 
 Every manifest field is optional — send only what your integration knows. An empty manifest is valid.
 
-## Client surface
+## Client Surface
 
 ```python
 client.sync(manifest)                  # push; lands as pending draft (or no-op)
@@ -67,7 +102,7 @@ from superbryn import AsyncSuperbryn
 result = await AsyncSuperbryn(api_key="sk_agent_...").sync(manifest)
 ```
 
-## Hash pre-check
+## Hash Pre-Check
 
 The SDK implements the same RFC 8785 (JCS) + SHA-256 content hashing as the server, so a client-side hash always agrees with the server's:
 
@@ -77,7 +112,7 @@ from superbryn import compute_manifest_hash
 local_hash = compute_manifest_hash(manifest)   # == manifest.hash
 ```
 
-## Framework adapters
+## Framework Adapters
 
 Lazy submodules — the base package depends on neither framework.
 
@@ -114,7 +149,7 @@ Superbryn(api_key="sk_agent_...").sync(manifest)
 
 Reads `agent.llm` / `agent.stt` / `agent.tts` and uses `agent.instructions` as the behavior prompt.
 
-## Provider translators
+## Provider Translators
 
 For SaaS platforms the agent config lives in their cloud, not in your process. Fetch the agent JSON from the provider's API, then translate it to a manifest:
 
@@ -143,7 +178,7 @@ Superbryn(api_key="sk_agent_...").sync(manifest)
 
 All translators are best-effort — unknown or missing fields degrade to a sparser manifest, never an error.
 
-## Source-code extraction (works for every provider)
+## Source-Code Extraction (works for every provider)
 
 You never know in advance what a provider's public API returns — some give back the full agent config, others little more than an id, and some (Hooman Labs, Shunya Labs, in-house stacks) have no agent-read API at all. Whatever the API does or doesn't return, the customer's own code — the place that instantiates the provider's package/SDK — is always available. `superbryn.codescan` statically scans that code and extracts the prompt, model, voice, language, temperature and phone number.
 
@@ -179,7 +214,30 @@ How it works:
 
 Extraction is best-effort and read-only. Run it in CI next to the agent code and every deploy syncs the latest config. Use `scan_source(path)` to inspect the raw findings before building a manifest.
 
-## Typed errors
+## Manifest Fields
+
+Override sections accept exactly the fields of the canonical manifest schema (unknown keys raise `ValueError` locally — the endpoint rejects them anyway):
+
+| Section | Fields |
+|---|---|
+| `identity` | `name`, `type` (`inbound`/`outbound`), `agent_modality` (`voice`/`chat`), `description`, `pain_point`, `gender`, `age`, `dob` |
+| `behavior` | `prompt`, `flow` |
+| `llm` / `stt` / `tts` / `voice` | `provider`, `model` / `voice_id`, plus per-block extras (`temperature`, `max_tokens`, `language`, `fallback`, `extra`) |
+| `tools` | list of `{name, description, schema, server: {type, url}}` |
+| `language` | `primary_language`, `additional_languages: [{code, priority}]` |
+| `telephony` | `phone_number`, `ivr_config` |
+
+Plus top-level strings/ints: `policy_guardrails`, `additional_details`, `concurrency_calls`.
+
+The canonical JSON Schema is bundled with the package:
+
+```python
+from superbryn import load_manifest_schema
+
+schema = load_manifest_schema()
+```
+
+## Typed Errors
 
 ```python
 from superbryn import (
@@ -192,17 +250,29 @@ from superbryn import (
 )
 ```
 
-## JSON Schema
+## Troubleshooting
 
-The canonical manifest schema is bundled:
+### Enable debug logs
 
 ```python
-from superbryn import load_manifest_schema
-
-schema = load_manifest_schema()
+import logging
+logging.basicConfig(level=logging.DEBUG)
+logging.getLogger("superbryn").setLevel(logging.DEBUG)
 ```
 
-## Environment variables
+### Common errors
+
+| Error | Cause | Fix |
+|---|---|---|
+| `ConfigurationError: no API key` | Missing API key | Pass `api_key=` or set `SUPERBRYN_API_KEY` |
+| `AuthenticationError` (401) | Invalid or revoked key | Verify the key in SuperBryn → Developers → API Keys |
+| `ScopeError` (403) | Org-wide key used | Create an **agent-scoped** key (scope: *Single agent*) |
+| `NotFoundError` (404) | No live version / no pending draft | Sync a manifest first, or skip the withdraw |
+| `ManifestValidationError` (400) | Manifest fails schema validation | Inspect `.details` for the offending fields |
+| `BusinessRuleError` (422) | Semantic rule failure | Inspect `.details` and adjust the manifest |
+| `RateLimitError` (429) | Too many requests | Back off and retry |
+
+## Environment Variables
 
 | Variable | Meaning |
 |---|---|
@@ -211,9 +281,20 @@ schema = load_manifest_schema()
 
 ## Links
 
-- Docs: https://docs.superbryn.com/advanced/agent-sync
-- Dashboard: https://try.superbryn.com
+- [Agent Sync documentation](https://docs.superbryn.com/advanced/agent-sync)
+- [GitHub repository](https://github.com/superbryndev/superbryn-agent-sync)
+- [Issue tracker](https://github.com/superbryndev/superbryn-agent-sync/issues)
+- [SuperBryn dashboard](https://try.superbryn.com)
+
+## Support
+
+- Email: support@superbryn.com
+- GitHub issues: [Report a bug](https://github.com/superbryndev/superbryn-agent-sync/issues)
 
 ## License
 
-MIT
+This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
+
+---
+
+Made with ❤️ by [SuperBryn](https://www.superbryn.com)
