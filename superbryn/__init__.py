@@ -19,6 +19,7 @@ from .__about__ import __version__
 from .canonical import canonicalize, compute_manifest_hash
 from .client import AsyncSuperbryn, Superbryn
 from .errors import (
+    AmbiguousScanError,
     AuthenticationError,
     BusinessRuleError,
     ConfigurationError,
@@ -43,6 +44,7 @@ __all__ = [
     "SuperbrynError",
     "SuperbrynAPIError",
     "ConfigurationError",
+    "AmbiguousScanError",
     "AuthenticationError",
     "ScopeError",
     "NotFoundError",

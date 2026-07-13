@@ -1,6 +1,6 @@
 # SuperBryn Agent Sync
 
-[![PyPI version](https://img.shields.io/badge/pypi-v0.1.4-orange)](https://pypi.org/project/superbryn-agent-sync/)
+[![PyPI version](https://img.shields.io/badge/pypi-v0.2.0-orange)](https://pypi.org/project/superbryn-agent-sync/)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Zero dependencies](https://img.shields.io/badge/dependencies-zero-brightgreen.svg)](https://pypi.org/project/superbryn-agent-sync/)
@@ -15,7 +15,7 @@ A pushed manifest **never changes your live agent directly**. It lands as a pend
 - **Draft-first sync** — every push lands as a pending draft for human review; nothing goes live without approval.
 - **Client-side content hashing** — same RFC 8785 (JCS) + SHA-256 hashing as the server, so you can pre-check and skip no-op pushes.
 - **Manifest builder** — fluent, typed builder for identity, behavior, LLM / STT / TTS / voice, tools, language, telephony, guardrails, and concurrency.
-- **Framework adapters** — build a manifest directly from a Pipecat pipeline or a LiveKit agent; public attributes only, never API keys.
+- **Framework adapters** — build a manifest directly from a Pipecat pipeline or a LiveKit agent, unwrapping fallback adapters and custom wrappers; a fixed allow-list of config attributes is read, never API keys.
 - **Provider translators** — turn Vapi / Retell / ElevenLabs / Bland / Bolna agent JSON into a manifest, best-effort and never erroring on unknown fields.
 - **Source-code extraction** — `codescan` statically scans your agent's code (Python `ast`, conservative JS/TS regexes) to fill prompt, models, voice, and phone number when no API can.
 - **Typed errors** — auth, scope, validation, business-rule, and rate-limit failures each raise a distinct exception with details.
@@ -126,7 +126,7 @@ manifest = build_manifest_from_pipeline(
 Superbryn(api_key="sk_agent_...").sync(manifest)
 ```
 
-Walks `pipeline._processors` and fills `llm` / `stt` / `tts` / `voice` automatically. Extractors read public attributes only — never API keys.
+Recursively walks the pipeline — including `ParallelPipeline` branches and `ServiceSwitcher` / `LLMSwitcher` members, and unwrapping custom wrapper classes — and fills `llm` / `stt` / `tts` / `voice` automatically. For switchers, the primary member fills the block and the next member is reported in its `fallback` sub-block. Extraction reads a fixed allow-list of configuration attributes (including private fields like `_settings` where Pipecat services store their settings); credential attributes such as API keys are never part of that list and are never read.
 
 ### LiveKit
 
@@ -142,7 +142,7 @@ manifest = build_manifest_from_agent(
 Superbryn(api_key="sk_agent_...").sync(manifest)
 ```
 
-Reads `agent.llm` / `agent.stt` / `agent.tts` and uses `agent.instructions` as the behavior prompt.
+Reads `agent.llm` / `agent.stt` / `agent.tts` — unwrapping `FallbackAdapter` / `StreamAdapter` / custom wrappers to the base plugin, with `FallbackAdapter` fallbacks reported in `fallback` sub-blocks — and uses `agent.instructions` as the behavior prompt. Extraction reads a fixed allow-list of configuration attributes (including private fields like `_opts` where LiveKit plugins store their settings); credential attributes such as API keys are never part of that list and are never read.
 
 ## Provider Translators
 
@@ -184,7 +184,7 @@ from superbryn import Superbryn
 from superbryn.codescan import build_manifest_from_source
 
 manifest = build_manifest_from_source(
-    "path/to/agent-project",          # directory or single file
+    "path/to/agent.py",               # prefer the specific agent file over a whole tree
     source="hooman-labs",
     identity={"name": "Support Agent", "type": "inbound"},  # anything the scan can't see
 )
@@ -197,7 +197,7 @@ As a gap filler after ANY translator — the scan adds only the fields the provi
 from superbryn import codescan, translators
 
 manifest = translators.vapi.manifest_from_assistant(raw)          # may be sparse
-manifest = codescan.fill_manifest_gaps(manifest, "path/to/agent-project")
+manifest = codescan.fill_manifest_gaps(manifest, "path/to/agent.py")
 ```
 
 How it works:
@@ -205,9 +205,10 @@ How it works:
 - Python files are parsed with `ast`: keyword arguments on any call (`prompt=`, `instructions=`, `model=`, `voice_id=`, ...) are collected, and simple variable references (`prompt=SYSTEM_PROMPT`) resolve to their assigned string constants.
 - JS/TS files are scanned with conservative regexes for the same keys in object-literal form (`systemPrompt: "..."`, `voiceId: '...'`).
 - Called class names classify hits per pipeline stage (`DeepgramSTTService` → stt/deepgram, `CartesiaTTSService` → tts/cartesia), so an STT model never lands in the `llm` block.
-- The longest prompt-key string wins as `behavior.prompt`; `node_modules`, virtualenvs and build output are skipped.
+- Prompt-key strings of 40+ characters qualify as `behavior.prompt`; `node_modules`, virtualenvs and build output are skipped, and **symlinks are never followed** — a scan can't escape the root you give it.
+- If several distinct qualifying prompt candidates compete, the scan raises `AmbiguousScanError` instead of guessing (uploading the wrong string from elsewhere in a project is worse than failing). Narrow the scan to the agent file, or pass `on_ambiguity="longest"` to accept longest-wins.
 
-Extraction is best-effort and read-only. Run it in CI next to the agent code and every deploy syncs the latest config. Use `scan_source(path)` to inspect the raw findings before building a manifest.
+Extraction is best-effort and read-only, and only values bound to the known config keys are collected — credential-style keys are never in the key sets. Run it in CI next to the agent code and every deploy syncs the latest config. Use `scan_source(path)` to inspect the raw findings before building a manifest.
 
 ## Manifest Fields
 

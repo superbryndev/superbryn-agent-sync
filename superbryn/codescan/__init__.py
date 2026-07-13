@@ -35,10 +35,29 @@ This module statically scans source files and pulls those values out:
 >>> Superbryn(api_key="sk_agent_...").sync(manifest)
 
 Extraction is best-effort and read-only: unparseable files are skipped,
-secrets are never read (only the known config keys are collected), and
-a scan that finds nothing produces a source-only manifest.
+only values bound to the known config keys are collected (credential-style
+keys are never in the key sets), and a scan that finds nothing produces a
+source-only manifest.
+
+Safety constraints:
+
+- Prefer scanning the **specific agent file** over a whole project tree —
+  everything the scan collects is uploaded to SuperBryn on sync.
+- Symlinks are never followed (neither directories nor files), so a scan
+  cannot escape the given root.
+- When several distinct prompt-length strings compete for
+  ``behavior.prompt``, the scan raises
+  :class:`superbryn.errors.AmbiguousScanError` instead of guessing; pass
+  ``on_ambiguity="longest"`` to opt back into longest-wins.
 """
 
+from ..errors import AmbiguousScanError
 from ._scan import ScanFindings, build_manifest_from_source, fill_manifest_gaps, scan_source
 
-__all__ = ["build_manifest_from_source", "fill_manifest_gaps", "scan_source", "ScanFindings"]
+__all__ = [
+    "AmbiguousScanError",
+    "build_manifest_from_source",
+    "fill_manifest_gaps",
+    "scan_source",
+    "ScanFindings",
+]

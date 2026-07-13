@@ -19,6 +19,25 @@ class ConfigurationError(SuperbrynError):
     """Client-side misconfiguration (missing API key / base URL)."""
 
 
+class AmbiguousScanError(SuperbrynError, ValueError):
+    """A source scan found multiple competing candidates for a field.
+
+    Raised instead of silently guessing (e.g. two long prompt strings in
+    different files). Narrow the scan to the specific agent file, or pass
+    ``on_ambiguity="longest"`` to accept the previous longest-wins behavior.
+    """
+
+    def __init__(self, field_name: str, candidates: list[tuple[str, str]]):
+        self.field_name = field_name
+        self.candidates = candidates
+        locations = ", ".join(sorted({file for file, _ in candidates}))
+        super().__init__(
+            f"source scan found {len(candidates)} competing values for {field_name!r} "
+            f"(in: {locations}). Scan the specific agent file instead of the whole "
+            f'project, or pass on_ambiguity="longest" to pick the longest one.'
+        )
+
+
 class SuperbrynAPIError(SuperbrynError):
     """Non-2xx response from the SuperBryn API."""
 

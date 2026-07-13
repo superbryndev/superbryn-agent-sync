@@ -66,3 +66,51 @@ def service_role(processor: Any) -> str | None:
         if role in module:
             return role
     return None
+
+
+# Attribute names commonly used by custom wrapper classes to hold the real
+# pipecat service instance. Probed in order; the first present wins.
+INNER_SERVICE_ATTRS = (
+    "_service",
+    "_llm",
+    "_stt",
+    "_tts",
+    "_inner",
+    "_wrapped",
+    "_base",
+    "service",
+)
+
+_NON_SERVICE_TYPES = (list, tuple, dict, set, str, bytes, int, float, bool)
+
+
+def unwrap_service(processor: Any) -> Any:
+    """Descend through custom wrapper classes to the real pipecat service.
+
+    Customer code sometimes wraps a service (e.g. a sanitising TTS wrapper
+    holding the real one in ``self._service``). The wrapper's module path is
+    the customer's, not ``pipecat.services.<provider>``, so extraction on the
+    wrapper yields nothing. Walk common inner attributes (cycle-safe) until a
+    ``pipecat.services.*`` instance is found or there is nothing to follow.
+    """
+    visited: set[int] = set()
+    current = processor
+    while current is not None and id(current) not in visited:
+        visited.add(id(current))
+        module = type(current).__module__ or ""
+        if "pipecat.services." in module:
+            return current
+        next_inner: Any = None
+        for attr in INNER_SERVICE_ATTRS:
+            candidate = getattr(current, attr, None)
+            if (
+                candidate is not None
+                and candidate is not current
+                and not isinstance(candidate, _NON_SERVICE_TYPES)
+            ):
+                next_inner = candidate
+                break
+        if next_inner is None:
+            return current
+        current = next_inner
+    return current

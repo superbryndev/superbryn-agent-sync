@@ -3,7 +3,12 @@ from pathlib import Path
 
 import pytest
 
-from superbryn.codescan import build_manifest_from_source, fill_manifest_gaps, scan_source
+from superbryn.codescan import (
+    AmbiguousScanError,
+    build_manifest_from_source,
+    fill_manifest_gaps,
+    scan_source,
+)
 
 PY_AGENT = textwrap.dedent(
     '''
@@ -137,3 +142,85 @@ def test_broken_python_file_is_skipped(tmp_path):
     )
     manifest = build_manifest_from_source(tmp_path)
     assert "system prompt for testing" in manifest["config"]["behavior"]["prompt"]
+
+
+# ── safety constraints ───────────────────────────────────────────────────
+
+
+def test_short_prompt_placeholders_are_filtered(tmp_path):
+    (tmp_path / "agent.py").write_text('agent = Agent(prompt="hi")')
+    manifest = build_manifest_from_source(tmp_path)
+    assert "behavior" not in manifest.get("config", {})
+
+
+def test_ambiguous_prompts_raise_by_default(tmp_path):
+    (tmp_path / "agent_a.py").write_text(
+        'a = Agent(prompt="You are agent A with a long enough prompt to qualify here.")'
+    )
+    (tmp_path / "agent_b.py").write_text(
+        'b = Agent(prompt="You are agent B with an even longer prompt that also qualifies fine.")'
+    )
+    with pytest.raises(AmbiguousScanError) as excinfo:
+        build_manifest_from_source(tmp_path)
+    assert "behavior.prompt" in str(excinfo.value)
+    # narrowing to one file resolves the ambiguity
+    manifest = build_manifest_from_source(tmp_path / "agent_a.py")
+    assert "agent A" in manifest["config"]["behavior"]["prompt"]
+
+
+def test_ambiguity_optin_longest_wins(tmp_path):
+    (tmp_path / "agent_a.py").write_text(
+        'a = Agent(prompt="You are agent A with a long enough prompt to qualify here.")'
+    )
+    (tmp_path / "agent_b.py").write_text(
+        'b = Agent(prompt="You are agent B with an even longer prompt that also qualifies fine.")'
+    )
+    manifest = build_manifest_from_source(tmp_path, on_ambiguity="longest")
+    assert "agent B" in manifest["config"]["behavior"]["prompt"]
+
+    with pytest.raises(ValueError, match="on_ambiguity"):
+        build_manifest_from_source(tmp_path, on_ambiguity="whatever")
+
+
+def test_fill_manifest_gaps_propagates_ambiguity(tmp_path):
+    (tmp_path / "agent_a.py").write_text(
+        'a = Agent(prompt="You are agent A with a long enough prompt to qualify here.")'
+    )
+    (tmp_path / "agent_b.py").write_text(
+        'b = Agent(prompt="You are agent B with an even longer prompt that also qualifies fine.")'
+    )
+    with pytest.raises(AmbiguousScanError):
+        fill_manifest_gaps({"source": "custom"}, tmp_path)
+    merged = fill_manifest_gaps({"source": "custom"}, tmp_path, on_ambiguity="longest")
+    assert "agent B" in merged["config"]["behavior"]["prompt"]
+
+
+def test_symlinks_are_never_followed(tmp_path):
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "confidential.py").write_text(
+        'x = Agent(prompt="TOP SECRET prompt content living outside the scanned project root.")'
+    )
+
+    project = tmp_path / "project"
+    project.mkdir()
+    (project / "agent.py").write_text(
+        'agent = Agent(prompt="The real project prompt, long enough to qualify for the scan.")'
+    )
+    (project / "linked_dir").symlink_to(outside, target_is_directory=True)
+    (project / "linked_file.py").symlink_to(outside / "confidential.py")
+
+    findings = scan_source(project)
+    assert findings.files_scanned == 1
+    assert all("confidential" not in f.file for f in findings.prompts)
+
+    manifest = build_manifest_from_source(project)
+    assert "TOP SECRET" not in manifest["config"]["behavior"]["prompt"]
+
+
+def test_symlinked_root_file_is_not_scanned(tmp_path):
+    real = tmp_path / "real.py"
+    real.write_text('a = Agent(prompt="A long enough prompt for the scanner to pick it up.")')
+    link = tmp_path / "link.py"
+    link.symlink_to(real)
+    assert scan_source(link).files_scanned == 0

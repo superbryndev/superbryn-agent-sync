@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import ast
+import os
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from ..errors import AmbiguousScanError
 from ..manifest import SYNC_SOURCES, Manifest
 
 PY_SUFFIXES = {".py"}
@@ -252,22 +254,32 @@ def _scan_js(path: Path, findings: ScanFindings) -> None:
 # ── public surface ───────────────────────────────────────────────────────────
 
 
+def _collect_paths(root_path: Path) -> list[Path]:
+    """Regular files under root, never following symlinks.
+
+    Symlinked directories are not descended into and symlinked files are
+    skipped — a symlink inside the scanned project must not pull in content
+    from outside ``root`` (or loop).
+    """
+    if root_path.is_file():
+        return [] if root_path.is_symlink() else [root_path]
+
+    paths: list[Path] = []
+    for dirpath, dirnames, filenames in os.walk(root_path, followlinks=False):
+        dirnames[:] = sorted(d for d in dirnames if d not in SKIP_DIRS)
+        base = Path(dirpath)
+        for filename in sorted(filenames):
+            path = base / filename
+            if not path.is_symlink():
+                paths.append(path)
+    return paths
+
+
 def scan_source(root: str | Path) -> ScanFindings:
     """Scan a file or directory tree and return the raw findings."""
-    root_path = Path(root)
     findings = ScanFindings()
 
-    paths: list[Path]
-    if root_path.is_file():
-        paths = [root_path]
-    else:
-        paths = [
-            p
-            for p in sorted(root_path.rglob("*"))
-            if p.is_file() and not any(part in SKIP_DIRS for part in p.parts)
-        ]
-
-    for path in paths:
+    for path in _collect_paths(Path(root)):
         if path.suffix in PY_SUFFIXES:
             _scan_python(path, findings)
             findings.files_scanned += 1
@@ -277,12 +289,27 @@ def scan_source(root: str | Path) -> ScanFindings:
     return findings
 
 
-def _pick_prompt(findings: ScanFindings) -> str | None:
-    texts = [f.value for f in findings.prompts if isinstance(f.value, str) and f.value.strip()]
-    if not texts:
+def _pick_prompt(findings: ScanFindings, on_ambiguity: str = "error") -> str | None:
+    """The scanned behavior prompt, or None.
+
+    Only strings >= MIN_PROMPT_LENGTH qualify (filters placeholders like
+    ``prompt="hi"``). When several *distinct* qualifying candidates exist,
+    the scan is ambiguous — silently guessing risks uploading an unrelated
+    (possibly confidential) string from elsewhere in the project — so the
+    default raises :class:`AmbiguousScanError`; ``on_ambiguity="longest"``
+    restores longest-wins.
+    """
+    qualifying = [
+        f
+        for f in findings.prompts
+        if isinstance(f.value, str) and len(f.value.strip()) >= MIN_PROMPT_LENGTH
+    ]
+    if not qualifying:
         return None
-    best = max(texts, key=len)
-    return best if len(best) >= MIN_PROMPT_LENGTH else best
+    distinct = {f.value for f in qualifying}
+    if len(distinct) > 1 and on_ambiguity != "longest":
+        raise AmbiguousScanError("behavior.prompt", [(f.file, f.value[:80]) for f in qualifying])
+    return max(distinct, key=len)
 
 
 def _first(findings: list[Finding], role: str | None = None) -> Finding | None:
@@ -310,18 +337,27 @@ def build_manifest_from_source(
     policy_guardrails: str | None = None,
     additional_details: str | None = None,
     concurrency_calls: int | None = None,
+    on_ambiguity: str = "error",
 ) -> Manifest:
     """Scan customer source code and assemble an AgentSyncManifest.
 
-    Heuristics: the LONGEST prompt-key string becomes ``behavior.prompt``
-    (the real system prompt is almost always the longest string literal in
-    an agent codebase); model/temperature/max_tokens hits classified as
-    LLM-role fill ``llm``; voice hits fill ``voice``; language hits fill
-    ``stt.language`` + ``config.language``. Everything the scan can't see
-    is supplied through the keyword overrides.
+    Prefer pointing ``root`` at the specific agent file rather than a whole
+    project tree — the scan uploads whatever config-shaped values it finds.
+    Symlinks are never followed.
+
+    Heuristics: the prompt-key string >= 40 chars becomes
+    ``behavior.prompt``; if several *distinct* qualifying prompt candidates
+    exist the scan raises :class:`superbryn.errors.AmbiguousScanError`
+    instead of guessing (pass ``on_ambiguity="longest"`` to pick the longest
+    one). Model/temperature/max_tokens hits classified as LLM-role fill
+    ``llm``; voice hits fill ``voice``; language hits fill ``stt.language``
+    + ``config.language``. Everything the scan can't see is supplied through
+    the keyword overrides.
     """
     if source not in SYNC_SOURCES:
         raise ValueError(f"source must be one of {SYNC_SOURCES}, got {source!r}")
+    if on_ambiguity not in ("error", "longest"):
+        raise ValueError(f'on_ambiguity must be "error" or "longest", got {on_ambiguity!r}')
 
     findings = scan_source(root)
     manifest: dict[str, Any] = {"source": source}
@@ -375,7 +411,7 @@ def build_manifest_from_source(
     config: dict[str, Any] = {}
     if identity is not None:
         config["identity"] = identity
-    prompt = _pick_prompt(findings)
+    prompt = _pick_prompt(findings, on_ambiguity)
     if prompt:
         config["behavior"] = {"prompt": prompt}
     if tools is not None:
@@ -410,7 +446,9 @@ def _deep_fill(base: dict[str, Any], extra: dict[str, Any]) -> dict[str, Any]:
     return merged
 
 
-def fill_manifest_gaps(manifest: dict[str, Any], root: str | Path) -> Manifest:
+def fill_manifest_gaps(
+    manifest: dict[str, Any], root: str | Path, *, on_ambiguity: str = "error"
+) -> Manifest:
     """Tops up a manifest with whatever a source scan can find.
 
     Public APIs vary wildly in what they return — some providers give back a
@@ -418,8 +456,14 @@ def fill_manifest_gaps(manifest: dict[str, Any], root: str | Path) -> Manifest:
     translator's output and the code scan fills only the fields the API
     didn't provide; values already in the manifest always win.
 
+    Like :func:`build_manifest_from_source`, ambiguous prompt candidates
+    raise :class:`superbryn.errors.AmbiguousScanError` unless
+    ``on_ambiguity="longest"`` is passed.
+
     >>> manifest = translators.vapi.manifest_from_assistant(raw)
-    >>> manifest = codescan.fill_manifest_gaps(manifest, "path/to/agent-project")
+    >>> manifest = codescan.fill_manifest_gaps(manifest, "path/to/agent.py")
     """
-    scanned = build_manifest_from_source(root, source=manifest.get("source", "custom"))
+    scanned = build_manifest_from_source(
+        root, source=manifest.get("source", "custom"), on_ambiguity=on_ambiguity
+    )
     return Manifest(_deep_fill(dict(manifest), dict(scanned)))
